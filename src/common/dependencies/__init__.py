@@ -1,0 +1,2 @@
+from common.dependencies.service_dependencies.auth_service_factory import create_auth_service
+from common.dependencies.service_dependencies.user_service_factory import create_user_service

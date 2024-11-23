@@ -1,0 +1,88 @@
+version: "3.7"
+
+networks:
+  test_default:
+    external: true
+
+services:
+  test_auth_postgres:
+    networks:
+      - test_default
+    container_name: test_auth_postgres
+    build:
+      context: docker/postgres
+      dockerfile: Dockerfile
+      target: server
+    env_file:
+      - .env
+    volumes:
+      - ${DATA_PATH}/postgres:/var/lib/postgresql/data
+    ports:
+      - "15432:5432"
+    expose:
+      - 5432
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "sh -c 'pg_isready -U ${POSTGRES_USER} -d test_auth_database'",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    environment:
+      - LC_ALL=C.UTF-8
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=$(POSTGRES_DB)
+
+  test_auth:
+    image: test_auth-image
+    build:
+      context: .
+      dockerfile: docker/auth_service/Dockerfile
+      target: server
+    networks:
+      - test_default
+    container_name: auth_service
+    platform: ${PLATFORM}
+    env_file:
+      - src/.env
+    command: python main.py run_restapi
+    depends_on:
+      test_auth_postgres:
+        condition: service_healthy
+      test_auth_redis:
+        condition: service_healthy
+      test_auth_grpc:
+        condition: service_started
+    ports:
+      - "8001:8000"
+
+  test_auth_redis:
+    image: redis:6.2-alpine
+    container_name: test_auth_redis
+    platform: ${PLATFORM}
+    restart: always
+    expose:
+      - 6379
+    networks:
+      - test_default
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  test_auth_grpc:
+    networks:
+      - test_default
+    container_name: test_auth_grpc
+    platform: ${PLATFORM}
+    build:
+      context: .
+      dockerfile: docker/auth_service/Dockerfile
+      target: server
+    command: python main.py run_grpc
+    ports:
+      - "50051:50051"

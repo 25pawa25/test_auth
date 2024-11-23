@@ -1,0 +1,2 @@
+EXPIRE_ACCESS_TOKEN = 60 * 60  # 1 час
+EXPIRE_REFRESH_TOKEN = 60 * 60 * 24 * 10  # 10 дней
